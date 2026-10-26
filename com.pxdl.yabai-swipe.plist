@@ -12,6 +12,10 @@
     <dict>
         <key>PATH</key>
         <string>@HOME@/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>YABAI_SWIPE_DISPLAY</key>
+        <string>cursor</string>
+        <key>YABAI_SWIPE_INVERT</key>
+        <string>0</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
