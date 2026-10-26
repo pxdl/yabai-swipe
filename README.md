@@ -2,16 +2,16 @@
 
 Instant trackpad swipes between macOS Spaces.
 
-macOS animates every Space switch made with the trackpad. yabai's scripting addition can switch Spaces instantly, but only for its own commands. yabai-swipe connects the two: it intercepts the native horizontal Space swipe and runs `yabai -m space --focus <space>` instead.
+macOS animates every Space switch made with the trackpad. yabai's scripting addition can switch Spaces instantly, but only for its own commands. yabai-swipe intercepts the native horizontal Space swipe and runs `yabai -m space --focus <space>` instead, so swipes switch instantly too.
 
-It is a single C file that runs as a LaunchAgent. It has no UI and registers no hotkeys, so keyboard shortcuts stay with skhd (or whatever you use).
+It is a single C file that runs as a LaunchAgent, with no UI and no hotkeys of its own. Keyboard shortcuts stay with skhd or whatever you use.
 
 ## How it works
 
 1. A `CGEventTap` watches Dock swipe gesture events from the trackpad.
-2. A horizontal swipe is swallowed when it begins, so the Dock never animates it.
+2. When a horizontal swipe begins, the tap swallows it, so the Dock never animates it.
 3. On the first movement, yabai-swipe works out the neighbouring Space on the display under the cursor and spawns `yabai -m space --focus <index>`.
-4. On macOS 27+ the swipe's end event is passed through with its motion zeroed, because the Dock needs it to reset its gesture state.
+4. On macOS 27 and later, the swipe's end event goes through with its motion zeroed, because the Dock needs it to reset its gesture state.
 
 Space indexes match yabai's numbering: 1..n across all displays, in the order `CGSCopyManagedDisplaySpaces` returns them (see `space_manager_mission_control_index` in yabai).
 
@@ -19,7 +19,7 @@ Space indexes match yabai's numbering: 1..n across all displays, in the order `C
 
 - macOS on Apple Silicon. Tested on macOS 27.2.
 - [yabai](https://github.com/asmvik/yabai) with the scripting addition loaded: `sudo yabai --load-sa` exits 0. Without it, `space --focus` animates or fails.
-- System Settings → Trackpad → More Gestures → **Swipe between full-screen applications** enabled. That's the gesture being intercepted; whether it uses three or four fingers is up to you.
+- System Settings → Trackpad → More Gestures → **Swipe between full-screen applications** enabled. yabai-swipe intercepts that gesture, with three or four fingers as you prefer.
 - Xcode Command Line Tools (`clang`, `codesign`). `make check` also needs `jq`.
 - No other tool intercepting the same swipe, such as InstantSpaceSwitcher or Quicker with their swipe override enabled.
 
@@ -31,13 +31,13 @@ make install
 
 This builds `build/yabai-swipe`, signs it, copies it to `~/.local/bin/yabai-swipe`, writes `~/Library/LaunchAgents/com.pxdl.yabai-swipe.plist` and loads it.
 
-The first launch shows the Accessibility prompt. Enable `yabai-swipe` under System Settings → Privacy & Security → Accessibility; it notices the grant within a second and starts, no restart needed. The log at `/tmp/yabai-swipe.log` should end with `yabai-swipe: running (...)`.
+The first launch shows the Accessibility prompt. Enable `yabai-swipe` under System Settings → Privacy & Security → Accessibility, and it starts by itself within a few seconds, without a manual restart. The log at `/tmp/yabai-swipe.log` should end with `yabai-swipe: running (...)`.
 
 ### Keeping the permission across rebuilds
 
-By default the binary is ad-hoc signed. macOS ties the Accessibility grant to the exact build, so after every rebuild the entry must be removed with `−` and re-added with `+` (toggling it off and on is not enough).
+By default the binary is ad-hoc signed, and macOS ties the Accessibility grant to that exact build. After every rebuild you have to remove the entry with `−` and add it again with `+` (toggling it off and on is not enough).
 
-Signing with a self-signed code-signing certificate makes the grant survive rebuilds, because macOS then ties it to the certificate. Create one once, the same way the [yabai wiki](https://github.com/asmvik/yabai/wiki/Installing-yabai-(from-HEAD)) describes: Keychain Access → Certificate Assistant → Create a Certificate, Identity Type **Self-Signed Root**, Certificate Type **Code Signing**. Then:
+A self-signed code-signing certificate makes the grant survive rebuilds, because macOS then ties it to the certificate. Create one once, as the [yabai wiki](https://github.com/asmvik/yabai/wiki/Installing-yabai-(from-HEAD)) describes: Keychain Access → Certificate Assistant → Create a Certificate, Identity Type **Self-Signed Root**, Certificate Type **Code Signing**. Then:
 
 ```sh
 make install SIGN="name of the certificate"
@@ -60,7 +60,7 @@ Settings are environment variables in `com.pxdl.yabai-swipe.plist`. Edit them th
 - At the first or last Space of a display, the swipe does nothing (in `focused` mode, only at the first or last Space overall). There is no wraparound.
 - Vertical swipes (Mission Control, App Exposé) and three-finger page swipes are untouched.
 - Switching Spaces on a display that isn't focused also moves focus to that display (yabai behaviour).
-- If macOS disables the event tap (after a slow callback or across sleep/wake), yabai-swipe re-enables it, with a check every 5 seconds in case the disable notice never arrives. If Accessibility was revoked instead, it exits rather than risk holding input; launchd restarts it and it waits for the permission again.
+- If macOS disables the event tap (after a slow callback or across sleep/wake), yabai-swipe turns it back on, and a check every 5 seconds catches the case where the disable notice never arrives. If Accessibility was revoked, it exits instead, because re-enabling a tap without the permission can hold input. launchd then restarts it, and it waits for the permission again.
 
 ## Troubleshooting
 
@@ -69,7 +69,7 @@ Settings are environment variables in `com.pxdl.yabai-swipe.plist`. Edit them th
 | Accessibility prompt again after `make install` | The ad-hoc signature changed (see [Keeping the permission across rebuilds](#keeping-the-permission-across-rebuilds)). Remove `yabai-swipe` from Accessibility with `−` and re-add `~/.local/bin/yabai-swipe` with `+`. |
 | Swipes still animate | Check `sudo yabai --load-sa` exits 0 and that `yabai -m space --focus 2` is instant from a terminal. After a macOS update the scripting addition is usually what breaks. |
 | Wrong Space is chosen | Run `make check` with the cursor on the affected display. It compares the index yabai-swipe computes (`yabai-swipe --target next\|prev`: `-1` at an edge, `0` if the display can't be resolved) with yabai's own view. |
-| Nothing happens at all | `launchctl print gui/$(id -u)/com.pxdl.yabai-swipe` and `/tmp/yabai-swipe.log`. |
+| Nothing happens at all | Check `launchctl print gui/$(id -u)/com.pxdl.yabai-swipe` and `/tmp/yabai-swipe.log`. |
 
 ## Make targets
 
@@ -84,7 +84,7 @@ Settings are environment variables in `com.pxdl.yabai-swipe.plist`. Edit them th
 
 ## Credits
 
-Gesture interception is adapted from [InstantSpaceSwitcher](https://github.com/jurplel/InstantSpaceSwitcher) by jurplel (MIT). Unlike that project, yabai-swipe doesn't synthesize gestures or provide hotkeys; the switch itself is done by yabai.
+Gesture interception is adapted from [InstantSpaceSwitcher](https://github.com/jurplel/InstantSpaceSwitcher) by jurplel (MIT). yabai-swipe leaves out that project's synthesized gestures and hotkeys; yabai does the switching.
 
 ## License
 
