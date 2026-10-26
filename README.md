@@ -51,13 +51,13 @@ Settings are environment variables in `com.pxdl.yabai-swipe.plist`. Edit them th
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
-| `YABAI_SWIPE_DISPLAY` | `cursor`, `focused` | `cursor` | Which display's Spaces the swipe moves through: the one under the mouse cursor, or yabai's focused display (`space --focus next/prev`). |
+| `YABAI_SWIPE_DISPLAY` | `cursor`, `focused` | `cursor` | `cursor`: move through the Spaces of the display under the mouse cursor, like the native swipe, by focusing the neighbour's index. `focused`: run yabai's `space --focus next/prev`, which acts on the display of the focused window and, at a display's last Space, continues onto the next display. Identical on a single display. |
 | `YABAI_SWIPE_INVERT` | `0`, `1` | `0` | Set to `1` if swipes go the wrong way. |
 
 ## Behaviour
 
 - If yabai isn't running (no `/tmp/yabai_$USER.socket`), the swipe goes through to the normal animated switch.
-- At the first or last Space of a display, the swipe does nothing. There is no wraparound.
+- At the first or last Space of a display, the swipe does nothing (in `focused` mode, only at the first or last Space overall). There is no wraparound.
 - Vertical swipes (Mission Control, App Exposé) and three-finger page swipes are untouched.
 - Switching Spaces on a display that isn't focused also moves focus to that display (yabai behaviour).
 - If macOS disables the event tap (after a slow callback or across sleep/wake), yabai-swipe re-enables it, with a check every 5 seconds in case the disable notice never arrives. If Accessibility was revoked instead, it exits rather than risk holding input; launchd restarts it and it waits for the permission again.
